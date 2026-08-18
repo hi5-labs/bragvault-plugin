@@ -112,8 +112,11 @@ describe('credentials', () => {
     saveCredentials({ token: 'bv_test_token_1234567890', email: 'a@b.c' });
     const creds = loadCredentials();
     expect(creds?.token).toBe('bv_test_token_1234567890');
-    const mode = fs.statSync(path.join(home, 'credentials.json')).mode & 0o777;
-    expect(mode).toBe(0o600);
+    if (process.platform !== 'win32') {
+      // Windows has no POSIX modes; chmod there is a best-effort no-op.
+      const mode = fs.statSync(path.join(home, 'credentials.json')).mode & 0o777;
+      expect(mode).toBe(0o600);
+    }
     clearCredentials();
     expect(loadCredentials()).toBeNull();
   });
