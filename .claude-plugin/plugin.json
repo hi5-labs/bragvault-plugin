@@ -1,0 +1,15 @@
+{
+  "name": "bragvault",
+  "version": "0.1.0",
+  "description": "Passively capture your engineering accomplishments (git commits, sessions, agent-noticed milestones), keep raw history local, optionally sync to BragVault.",
+  "author": {
+    "name": "hi5-labs",
+    "url": "https://github.com/hi5-labs"
+  },
+  "homepage": "https://github.com/hi5-labs/bragvault-plugin",
+  "repository": "https://github.com/hi5-labs/bragvault-plugin",
+  "license": "Apache-2.0",
+  "keywords": ["accomplishments", "brag-document", "git", "productivity"],
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json"
+}

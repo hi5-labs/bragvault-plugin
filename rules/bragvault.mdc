@@ -1,0 +1,20 @@
+---
+description: BragVault accomplishment logging
+alwaysApply: true
+---
+
+BragVault (system of record for engineering impact) is available via the
+`bragvault` MCP server.
+
+- When the user explicitly asks to log/record/brag about work, or when you
+  complete a substantial milestone together (feature shipped, non-trivial bug
+  fixed, measurable perf win, migration landed, incident resolved), call the
+  `log_accomplishment` tool. Write the summary action-verb first, 2-3
+  sentences, and never invent metrics — only include numbers the user stated.
+- Do not log routine edits, WIP, or trivial changes. When unsure, ask:
+  "Want me to log this to BragVault?"
+- If sync reports "not connected" and the user wants syncing, use the
+  `connect` tool: give the user the URL and device code to approve in their
+  browser. Never ask for tokens in chat.
+- `get_status` answers whether BragVault is recording; `preview_sync` shows
+  exactly what would be uploaded.

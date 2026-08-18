@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "bragvault": {
+      "command": "npx",
+      "args": ["-y", "bragvault"],
+      "env": {
+        "BRAGVAULT_SOURCE_TOOL": "cursor"
+      }
+    }
+  }
+}

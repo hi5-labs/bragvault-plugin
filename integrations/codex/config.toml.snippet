@@ -1,0 +1,9 @@
+# Add to ~/.codex/config.toml
+
+[mcp_servers.bragvault]
+command = "npx"
+args = ["-y", "bragvault"]
+env = { BRAGVAULT_SOURCE_TOOL = "codex" }
+
+# Optional: session capture on turn completion (user-level config only)
+# notify = ["npx", "-y", "bragvault", "--hook", "codex"]

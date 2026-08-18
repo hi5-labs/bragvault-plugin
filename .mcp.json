@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "bragvault": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/bragvault-mcp.js"
+      ],
+      "env": {
+        "BRAGVAULT_SOURCE_TOOL": "claude-code"
+      }
+    }
+  }
+}

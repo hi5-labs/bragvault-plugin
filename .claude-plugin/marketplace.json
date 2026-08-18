@@ -1,0 +1,15 @@
+{
+  "name": "bragvault",
+  "description": "Local-first engineering accomplishment capture with optional BragVault sync.",
+  "owner": {
+    "name": "hi5-labs",
+    "url": "https://github.com/hi5-labs"
+  },
+  "plugins": [
+    {
+      "name": "bragvault",
+      "source": "./",
+      "description": "Passively capture your engineering accomplishments; local-first, optional sync to BragVault."
+    }
+  ]
+}
