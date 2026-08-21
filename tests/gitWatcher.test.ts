@@ -110,6 +110,36 @@ describe('GitWatcher', () => {
     expect(messages).toContain('feat: made offline');
   });
 
+  it('attributes passive commits to git, not a tool', async () => {
+    process.env.BRAGVAULT_SOURCE_TOOL = 'cursor';
+    gitCommit('feat: neutral attribution', 'a.ts', 'a\n');
+    const watcher = new GitWatcher(repo, DEFAULT_CONFIG, () => {});
+    await watcher.start();
+    watcher.stop();
+    delete process.env.BRAGVAULT_SOURCE_TOOL;
+    const events = readRecentEvents(10);
+    expect(events[0]!.sourceTool).toBe('git');
+  });
+
+  it('skips polling when the session is idle (startup backfill exempt)', async () => {
+    gitCommit('feat: while active', 'a.ts', 'a\n');
+    const watcher = new GitWatcher(repo, DEFAULT_CONFIG, () => {}, () => false);
+    // Startup backfill runs regardless: opening a session is activity.
+    await watcher.start();
+    watcher.stop();
+    expect(readRecentEvents(10)).toHaveLength(1);
+
+    // New commit while idle: a manual tick must observe nothing.
+    gitCommit('feat: while idle', 'b.ts', 'b\n');
+    await watcher.pollOnce(false);
+    expect(readRecentEvents(10)).toHaveLength(1);
+
+    // Same tick with activity present captures it.
+    const active = new GitWatcher(repo, DEFAULT_CONFIG, () => {}, () => true);
+    await active.pollOnce(false);
+    expect(readRecentEvents(10)).toHaveLength(2);
+  });
+
   it('tolerates a repo with no commits yet', async () => {
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'bragvault-empty-'));
     sh(empty, 'git', ['init', '-q']);

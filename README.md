@@ -52,7 +52,7 @@ See [`integrations/codex/AGENTS.snippet.md`](integrations/codex/AGENTS.snippet.m
 
 | Channel | How | What |
 |---|---|---|
-| Git activity | The MCP server polls `git log` for the open workspace (your commits only; backfills commits made while no editor was open) | Commit stats, tags/releases, merges — template-summarized |
+| Git activity | The MCP server polls `git log` for the open workspace (your commits only; backfills commits made while no editor was open; polling pauses when the session is idle) | Commit stats, tags/releases, merges — template-summarized, attributed to "Git" rather than any tool (the watcher is a witness, not an author) |
 | Agent judgment | Your coding agent calls `log_accomplishment` when it recognizes a milestone (or you ask it to) | Structured accomplishment: title, summary, category, impact, technologies |
 | Session boundaries | Claude Code `Stop` hook / Cursor `sessionEnd` hook / Codex `notify` | Deterministic session digest (duration, files touched, prompts) |
 

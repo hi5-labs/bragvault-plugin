@@ -38,6 +38,15 @@ const DENIED_MESSAGE =
 export async function runMcpServer(): Promise<void> {
   const config = ensureConfigFile();
 
+  // Session activity signal for the passive watcher: server start counts
+  // (a session opening is activity), and every MCP tool call refreshes it.
+  // An editor window left idle past the window stops observing entirely.
+  let lastActivityAt = Date.now();
+  const touchActivity = () => {
+    lastActivityAt = Date.now();
+  };
+  const sessionIsActive = () => Date.now() - lastActivityAt < config.capture.git.activityWindowMs;
+
   const server = new McpServer({ name: 'bragvault', version: PLUGIN_VERSION });
 
   server.registerTool(
@@ -81,6 +90,7 @@ export async function runMcpServer(): Promise<void> {
       },
     },
     async (args) => {
+      touchActivity();
       const ws = await workspaceRepo(config);
       if (ws.denied) {
         return { content: [{ type: 'text' as const, text: DENIED_MESSAGE }] };
@@ -128,6 +138,7 @@ export async function runMcpServer(): Promise<void> {
       },
     },
     async (args) => {
+      touchActivity();
       const ws = await workspaceRepo(config);
       if (ws.denied) {
         return { content: [{ type: 'text' as const, text: DENIED_MESSAGE }] };
@@ -167,6 +178,7 @@ export async function runMcpServer(): Promise<void> {
       inputSchema: {},
     },
     async () => {
+      touchActivity();
       const creds = loadCredentials();
       const state = loadState();
       const status = {
@@ -194,6 +206,7 @@ export async function runMcpServer(): Promise<void> {
       },
     },
     async (args) => {
+      touchActivity();
       // Journal entries are raw; redact anything surfaced into agent context.
       const events = readRecentEvents(args.limit ?? 10).map((e) => ({
         kind: e.kind,
@@ -220,6 +233,7 @@ export async function runMcpServer(): Promise<void> {
       },
     },
     async (args) => {
+      touchActivity();
       const client = new BragvaultClient(config.endpoint);
       if (!args.code) {
         const start = await client.deviceAuthStart(`${sourceTool()} on ${os.hostname()}`);
@@ -286,6 +300,7 @@ export async function runMcpServer(): Promise<void> {
       inputSchema: {},
     },
     async () => {
+      touchActivity();
       const state = loadState();
       const wire = listQueued().map((e) => toWireEvent(e, state.deviceId, config));
       return { content: [{ type: 'text' as const, text: JSON.stringify(wire, null, 2) }] };
@@ -311,7 +326,7 @@ export async function runMcpServer(): Promise<void> {
       git: event.git,
       evidence: [event.id],
     });
-  });
+  }, sessionIsActive);
   const syncer = new Syncer(config);
   await watcher.start();
   syncer.start();

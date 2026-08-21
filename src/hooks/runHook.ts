@@ -44,6 +44,14 @@ export async function runHook(tool: string, argvPayload?: string): Promise<void>
     repo = await repoInfo(cwd);
   }
 
+  // A digest with no repo context and no measurable stats says nothing;
+  // journaling hundreds of them is pure noise (SessionEnd fires for every
+  // tiny or headless session).
+  const hasStats = Boolean(
+    session.durationMinutes || session.filesTouchedCount || session.promptCount || session.toolUseCount,
+  );
+  if (!repo && !hasStats) return;
+
   const significance = scoreSession(session);
   const structured = sessionToStructured(session, repo);
 

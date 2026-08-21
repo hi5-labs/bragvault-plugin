@@ -1,6 +1,6 @@
 {
   "name": "bragvault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "BragVault plugin for Cursor, Claude Code, and Codex: passively captures your engineering accomplishments from git activity and agent sessions, keeps raw history local, and optionally syncs structured accomplishments to your BragVault account.",
   "license": "Apache-2.0",
   "repository": {

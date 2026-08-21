@@ -64,7 +64,7 @@ Batch ingest, max 50 events. Each event:
   "context": "branch main",
   "technologies": ["TypeScript", "MCP"],
   "source": {
-    "tool": "claude-code",
+    "tool": "claude-code",  // "git" for passive commit events: no tool authored them
     "plugin_version": "0.1.0",
     "device_id": "dev_9f2c...",
     "repo": "product",

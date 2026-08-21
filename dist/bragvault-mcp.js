@@ -21226,7 +21226,8 @@ var DEFAULT_CONFIG = {
     git: {
       enabled: true,
       pollIntervalMs: 3e4,
-      minSignificance: 20
+      minSignificance: 20,
+      activityWindowMs: 15 * 6e4
     },
     denyRepos: []
   },
@@ -21263,6 +21264,7 @@ function sanitize(config2) {
   config2.sync.flushIntervalMs = clamp(config2.sync.flushIntervalMs, 3e3, 36e5, d.sync.flushIntervalMs);
   config2.capture.git.pollIntervalMs = clamp(config2.capture.git.pollIntervalMs, 2e3, 36e5, d.capture.git.pollIntervalMs);
   config2.capture.git.minSignificance = clamp(config2.capture.git.minSignificance, 0, 100, d.capture.git.minSignificance);
+  config2.capture.git.activityWindowMs = clamp(config2.capture.git.activityWindowMs, 6e4, 864e5, d.capture.git.activityWindowMs);
   if (!Array.isArray(config2.capture.denyRepos)) config2.capture.denyRepos = [];
   if (typeof config2.endpoint !== "string" || !/^https?:\/\//.test(config2.endpoint)) {
     config2.endpoint = d.endpoint;
@@ -21814,14 +21816,16 @@ function sessionToStructured(session, repo, narrative) {
 
 // src/capture/gitWatcher.ts
 var GitWatcher = class _GitWatcher {
-  constructor(repoPath, config2, onCandidate) {
+  constructor(repoPath, config2, onCandidate, isActive = () => true) {
     this.repoPath = repoPath;
     this.config = config2;
     this.onCandidate = onCandidate;
+    this.isActive = isActive;
   }
   repoPath;
   config;
   onCandidate;
+  isActive;
   timer = null;
   running = false;
   async start() {
@@ -21831,13 +21835,13 @@ var GitWatcher = class _GitWatcher {
     if (isRepoDenied(this.config, root)) return;
     this.running = true;
     try {
-      await this.poll(true);
+      await this.pollOnce(true);
     } catch {
     }
     const tick = async () => {
       if (!this.running) return;
       try {
-        await this.poll(false);
+        await this.pollOnce(false);
       } catch {
       }
       this.timer = setTimeout(tick, this.config.capture.git.pollIntervalMs);
@@ -21854,7 +21858,8 @@ var GitWatcher = class _GitWatcher {
   /** Cap per poll so a huge offline range cannot overflow git's stdout
    * buffer; the cursor advances page by page across successive polls. */
   static PAGE_SIZE = 500;
-  async poll(isBackfill) {
+  async pollOnce(isBackfill) {
+    if (!isBackfill && !this.isActive()) return;
     const info = await repoInfo(this.repoPath);
     const repoKey = info.remoteHash ?? info.name;
     const state = loadState();
@@ -21885,7 +21890,9 @@ var GitWatcher = class _GitWatcher {
           kind: "git_commit",
           occurredAt: raw.authoredAt,
           capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          sourceTool: process.env.BRAGVAULT_SOURCE_TOOL ?? "unknown",
+          // Passive observation carries no tool identity: the watcher merely
+          // witnessed a commit, it did not author anything.
+          sourceTool: "git",
           repo: info,
           git: commit,
           structured: commitToStructured(commit, info),
@@ -22187,6 +22194,11 @@ async function workspaceRepo(config2) {
 var DENIED_MESSAGE = "This repository is on the BragVault deny list (capture.denyRepos), so nothing is recorded here.";
 async function runMcpServer() {
   const config2 = ensureConfigFile();
+  let lastActivityAt = Date.now();
+  const touchActivity = () => {
+    lastActivityAt = Date.now();
+  };
+  const sessionIsActive = () => Date.now() - lastActivityAt < config2.capture.git.activityWindowMs;
   const server = new McpServer({ name: "bragvault", version: PLUGIN_VERSION });
   server.registerTool(
     "log_accomplishment",
@@ -22218,6 +22230,7 @@ async function runMcpServer() {
       }
     },
     async (args) => {
+      touchActivity();
       const ws = await workspaceRepo(config2);
       if (ws.denied) {
         return { content: [{ type: "text", text: DENIED_MESSAGE }] };
@@ -22262,6 +22275,7 @@ async function runMcpServer() {
       }
     },
     async (args) => {
+      touchActivity();
       const ws = await workspaceRepo(config2);
       if (ws.denied) {
         return { content: [{ type: "text", text: DENIED_MESSAGE }] };
@@ -22298,6 +22312,7 @@ async function runMcpServer() {
       inputSchema: {}
     },
     async () => {
+      touchActivity();
       const creds = loadCredentials();
       const state = loadState();
       const status = {
@@ -22324,6 +22339,7 @@ async function runMcpServer() {
       }
     },
     async (args) => {
+      touchActivity();
       const events = readRecentEvents(args.limit ?? 10).map((e) => ({
         kind: e.kind,
         occurred_at: e.occurredAt,
@@ -22344,6 +22360,7 @@ async function runMcpServer() {
       }
     },
     async (args) => {
+      touchActivity();
       const client = new BragvaultClient(config2.endpoint);
       if (!args.code) {
         const start = await client.deviceAuthStart(`${sourceTool()} on ${os2.hostname()}`);
@@ -22401,6 +22418,7 @@ async function runMcpServer() {
       inputSchema: {}
     },
     async () => {
+      touchActivity();
       const state = loadState();
       const wire = listQueued().map((e) => toWireEvent(e, state.deviceId, config2));
       return { content: [{ type: "text", text: JSON.stringify(wire, null, 2) }] };
@@ -22422,7 +22440,7 @@ async function runMcpServer() {
       git: event.git,
       evidence: [event.id]
     });
-  });
+  }, sessionIsActive);
   const syncer = new Syncer(config2);
   await watcher.start();
   syncer.start();
@@ -22518,6 +22536,10 @@ async function runHook(tool, argvPayload) {
     if (isRepoDenied(config2, root)) return;
     repo = await repoInfo(cwd);
   }
+  const hasStats = Boolean(
+    session.durationMinutes || session.filesTouchedCount || session.promptCount || session.toolUseCount
+  );
+  if (!repo && !hasStats) return;
   const significance = scoreSession(session);
   const structured = sessionToStructured(session, repo);
   if (significance < config2.capture.git.minSignificance) {

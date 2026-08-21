@@ -18,6 +18,9 @@ export interface BragvaultConfig {
       pollIntervalMs: number;
       /** Only candidates scoring at or above this sync; everything journals. */
       minSignificance: number;
+      /** Passive polling pauses when the host session has been idle longer
+       * than this; an idle editor window observes nothing. */
+      activityWindowMs: number;
     };
     /** Repo basenames or absolute paths never captured at all. */
     denyRepos: string[];
@@ -42,6 +45,7 @@ export const DEFAULT_CONFIG: BragvaultConfig = {
       enabled: true,
       pollIntervalMs: 30_000,
       minSignificance: 20,
+      activityWindowMs: 15 * 60_000,
     },
     denyRepos: [],
   },
@@ -85,6 +89,7 @@ function sanitize(config: BragvaultConfig): BragvaultConfig {
   config.sync.flushIntervalMs = clamp(config.sync.flushIntervalMs, 3_000, 3_600_000, d.sync.flushIntervalMs);
   config.capture.git.pollIntervalMs = clamp(config.capture.git.pollIntervalMs, 2_000, 3_600_000, d.capture.git.pollIntervalMs);
   config.capture.git.minSignificance = clamp(config.capture.git.minSignificance, 0, 100, d.capture.git.minSignificance);
+  config.capture.git.activityWindowMs = clamp(config.capture.git.activityWindowMs, 60_000, 86_400_000, d.capture.git.activityWindowMs);
   if (!Array.isArray(config.capture.denyRepos)) config.capture.denyRepos = [];
   if (typeof config.endpoint !== 'string' || !/^https?:\/\//.test(config.endpoint)) {
     config.endpoint = d.endpoint;

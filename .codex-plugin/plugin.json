@@ -1,6 +1,6 @@
 {
   "name": "bragvault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Passively capture your engineering accomplishments (git commits, sessions, agent-noticed milestones), keep raw history local, optionally sync to BragVault.",
   "author": {
     "name": "hi5-labs",

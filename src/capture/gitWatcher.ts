@@ -9,6 +9,7 @@ import { scoreCommit } from './significance.js';
 import { commitToStructured } from './templates.js';
 
 export type CandidateHandler = (event: JournalEvent) => void;
+export type ActivityCheck = () => boolean;
 
 /**
  * Passive git capture for one workspace. Runs inside the MCP server process:
@@ -24,6 +25,7 @@ export class GitWatcher {
     private readonly repoPath: string,
     private readonly config: BragvaultConfig,
     private readonly onCandidate: CandidateHandler,
+    private readonly isActive: ActivityCheck = () => true,
   ) {}
 
   async start(): Promise<void> {
@@ -36,14 +38,14 @@ export class GitWatcher {
 
     this.running = true;
     try {
-      await this.poll(true);
+      await this.pollOnce(true);
     } catch {
       // Startup capture must never take the MCP server down; retry on the next tick.
     }
     const tick = async () => {
       if (!this.running) return;
       try {
-        await this.poll(false);
+        await this.pollOnce(false);
       } catch {
         // git failures (locks, detached worktrees) are expected; retry next tick
       }
@@ -64,7 +66,13 @@ export class GitWatcher {
    * buffer; the cursor advances page by page across successive polls. */
   private static readonly PAGE_SIZE = 500;
 
-  private async poll(isBackfill: boolean): Promise<void> {
+  async pollOnce(isBackfill: boolean): Promise<void> {
+    // An idle editor window observes nothing: without recent session
+    // activity there is no basis to attribute (or even witness) work here.
+    // The startup backfill is exempt — a session opening IS activity — and
+    // whichever tool the user actually works in next will catch up the
+    // shared cursor.
+    if (!isBackfill && !this.isActive()) return;
     const info = await repoInfo(this.repoPath);
     const repoKey = info.remoteHash ?? info.name;
     const state = loadState();
@@ -107,7 +115,9 @@ export class GitWatcher {
           kind: 'git_commit',
           occurredAt: raw.authoredAt,
           capturedAt: new Date().toISOString(),
-          sourceTool: process.env.BRAGVAULT_SOURCE_TOOL ?? 'unknown',
+          // Passive observation carries no tool identity: the watcher merely
+        // witnessed a commit, it did not author anything.
+        sourceTool: 'git',
           repo: info,
           git: commit,
           structured: commitToStructured(commit, info),
